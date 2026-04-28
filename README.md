@@ -62,10 +62,10 @@ dvc remote modify myremote gdrive_use_service_account true
 dvc pull                         # descarga data/ y output/ desde Google Drive
 
 # 4. Lanzar la API localmente
-uvicorn src.api.main:app --reload --port 8000
+### Pendiente
 ```
 
-Swagger UI disponible en: http://localhost:8000/docs
+#### Swagger UI disponible en: ----pendiente----
 
 ---
 
@@ -99,10 +99,9 @@ dvc push
 
 ---
 
-## Actualización automática (cada 16 días)
+## Actualización (manual por ahora -- futuro automática) (cada 16 días)
 
-GitHub Actions ejecuta el pipeline automáticamente los días 1 y 17 de cada mes.
-También puede ejecutarse manualmente desde **Actions → Actualización pipeline → Run workflow**.
+Ejecutar manualmente desde **Actions → Actualización pipeline → Run workflow**.
 
 Secrets requeridos en GitHub:
 | Secret | Descripción |
@@ -113,7 +112,7 @@ Secrets requeridos en GitHub:
 
 ---
 
-## API — Endpoints principales
+## API — Endpoints principales - PENDIENTE
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
