@@ -1,0 +1,59 @@
+# ── Datos (gestionados por DVC, nunca por git) ────────────────────────
+data/raw/
+data/processed/
+output/ic/
+output/pa3/
+*.parquet
+*.pkl
+*.csv
+*.tif
+*.nc
+*.h5
+
+# ── DVC cache local ───────────────────────────────────────────────────
+.dvc/cache/
+.dvc/tmp/
+
+# ── Python ────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+.venv/
+venv/
+env/
+.env
+
+# ── Jupyter ───────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── IDEs ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Google Earth Engine credenciales ─────────────────────────────────
+*.json
+!config/*.json.example
+service_account_key.json
+
+# ── Modelos serializados (en output/, gestionados por DVC) ────────────
+*.pkl
+*.joblib
+*.yaml
+!config/*.yaml
+!dvc.yaml

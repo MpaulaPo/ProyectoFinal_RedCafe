@@ -1,0 +1,90 @@
+stages:
+
+  # ── Etapa 1: Descarga de datos ERA5 + MODIS desde GEE ───────────────
+  descarga:
+    cmd: python src/pipeline/00_descarga_gee.py
+    deps:
+      - src/pipeline/00_descarga_gee.py
+      - config/params.yaml
+    outs:
+      - data/raw/ERA5_Caldas/
+      - data/raw/MODIS_Caldas/
+    params:
+      - config/params.yaml:
+        - fecha_inicio
+        - fecha_fin
+        - lon_min
+        - lon_max
+        - lat_min
+        - lat_max
+    desc: >
+      Descarga datos ERA5-Land (horario) y MODIS MOD13Q1 (16 días)
+      desde Google Earth Engine para la región de Caldas.
+      Se ejecuta manualmente o cada 16 días vía GitHub Actions.
+
+  # ── Etapa 2: Procesamiento y feature engineering ─────────────────────
+  procesamiento:
+    cmd: >
+      jupyter nbconvert --to notebook --execute
+      notebooks/01_Procesamiento.ipynb
+      --output notebooks/01_Procesamiento_ejecutado.ipynb
+    deps:
+      - notebooks/01_Procesamiento.ipynb
+      - data/raw/ERA5_Caldas/
+      - data/raw/MODIS_Caldas/
+      - config/params.yaml
+    outs:
+      - data/processed/df_train.parquet
+      - data/processed/df_val.parquet
+      - data/processed/df_test.parquet
+    desc: >
+      Une ERA5 + MODIS, aplica QA, filtro espacial (zona cafetera
+      600-2000 msnm, <30% NDVI faltante), split temporal y
+      feature engineering (Z-scores por período, BAL, PET).
+
+  # ── Etapa 3: Construcción del IC ─────────────────────────────────────
+  ic_construccion:
+    cmd: >
+      jupyter nbconvert --to notebook --execute
+      notebooks/02_IC_construccion.ipynb
+      --output notebooks/02_IC_construccion_ejecutado.ipynb
+    deps:
+      - notebooks/02_IC_construccion.ipynb
+      - data/processed/df_train.parquet
+      - data/processed/df_val.parquet
+      - data/processed/df_test.parquet
+    outs:
+      - output/ic/df_train_ic.parquet
+      - output/ic/df_val_ic.parquet
+      - output/ic/df_test_ic.parquet
+      - output/ic/pca_model.pkl
+      - output/ic/pesos_wi.pkl
+      - output/ic/pesos_wi_ext.pkl
+      - output/ic/modelo_dependencia.pkl
+      - output/ic/config_ic.yaml
+      - output/ic/resultados_todas_combinaciones.csv
+    desc: >
+      Construye PCA e IC_WI, backtest de estabilidad, PA2 con
+      regresión cuantílica, selecciona IC_WI_ext_QR como IC definitivo.
+
+  # ── Etapa 4: Pricing ─────────────────────────────────────────────────
+  pricing:
+    cmd: >
+      jupyter nbconvert --to notebook --execute
+      notebooks/03_PA3_pricing.ipynb
+      --output notebooks/03_PA3_pricing_ejecutado.ipynb
+    deps:
+      - notebooks/03_PA3_pricing.ipynb
+      - output/ic/df_train_ic.parquet
+      - output/ic/df_val_ic.parquet
+      - output/ic/df_test_ic.parquet
+      - output/ic/config_ic.yaml
+    outs:
+      - output/pa3/params_dist.pkl
+      - output/pa3/triggers.pkl
+      - output/pa3/primas.parquet
+      - output/pa3/config_pa3.yaml
+      - output/pa3/diagnostico_gamma.csv
+    desc: >
+      STL condicional, ajuste Weibull por celda (Anderson-Darling manual),
+      Monte Carlo 50k escenarios, E(Loss), prima pura, validación R1-R3.

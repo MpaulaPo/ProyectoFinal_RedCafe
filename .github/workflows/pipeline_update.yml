@@ -1,0 +1,82 @@
+name: Actualización pipeline cada 16 días
+
+on:
+  schedule:
+    - cron: "0 6 1,17 * *"
+  workflow_dispatch:
+    inputs:
+      fecha_fin:
+        description: "Fecha fin de descarga (YYYY-MM-DD, default: hoy)"
+        required: false
+        default: ""
+
+jobs:
+  actualizar_pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Configurar credenciales Google Earth Engine
+        env:
+          GEE_SERVICE_ACCOUNT_KEY: ${{ secrets.GEE_SERVICE_ACCOUNT_KEY }}
+        run: |
+          echo "$GEE_SERVICE_ACCOUNT_KEY" > gee_key.json
+          python -c "
+          import ee, json
+          with open('gee_key.json') as f:
+              key = json.load(f)
+          creds = ee.ServiceAccountCredentials(key['client_email'], 'gee_key.json')
+          ee.Initialize(creds)
+          print('GEE inicializado correctamente')
+          "
+
+      - name: Configurar credenciales AWS para DVC
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          dvc remote modify myremote access_key_id     $AWS_ACCESS_KEY_ID
+          dvc remote modify myremote secret_access_key $AWS_SECRET_ACCESS_KEY
+
+      - name: Pull artefactos existentes desde S3
+        run: dvc pull --run-cache || echo "Sin caché previo"
+
+      - name: Actualizar fecha_fin en params.yaml
+        run: |
+          FECHA="${{ github.event.inputs.fecha_fin }}"
+          if [ -z "$FECHA" ]; then
+            FECHA=$(date +%Y-%m-%d)
+          fi
+          sed -i "s/^fecha_fin:.*/fecha_fin: \"$FECHA\"/" config/params.yaml
+          echo "Fecha fin actualizada a: $FECHA"
+
+      - name: Ejecutar pipeline DVC
+        run: dvc repro --no-commit
+
+      - name: Push artefactos actualizados a S3
+        run: dvc push
+
+      - name: Commit cambios en dvc.lock y params.yaml
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dvc.lock config/params.yaml
+          git diff --staged --quiet || git commit -m \
+            "chore: actualización pipeline $(date +%Y-%m-%d) [skip ci]"
+          git push
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f gee_key.json
