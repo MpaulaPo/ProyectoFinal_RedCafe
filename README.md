@@ -156,8 +156,8 @@ curl -X POST http://localhost:8000/simulation/run \
 |---|---|---|
 | R1 — Hedge Effectiveness | ≥ 55% | En diagnóstico |
 | R2 — Dispersión de primas | ≥ 20% diferencia alto/bajo riesgo | 45.1% ✅ |
-| R3 — Reproducibilidad | Varianza = 0 con semilla fija | ✅ |
-| R4 — Correlación IC-NDVI | ρ ≥ 0.60 | ρ = 0.495 (recall extremos 84.9%) |
+| R3 — Reproducibilidad | Varianza = 0 con semilla fija | X - pendiente ajuste semilla por celda |
+| R4 — Correlación IC-NDVI | ρ ≥ 0.60 | ρ = 0.495 - evaluar si se ajusta el requerimiento |
 | R5 — Recall eventos extremos | ≥ 60% | 84.9% ✅ |
 
 ---
