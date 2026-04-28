@@ -1,0 +1,45 @@
+# ── Zona de estudio ───────────────────────────────────────────────────
+lon_min: -76.2
+lon_max: -74.9
+lat_min: 4.7
+lat_max: 5.7
+
+# ── Zona cafetera Caldas (msnm) ───────────────────────────────────────
+elev_cafe_min: 600
+elev_cafe_max: 2000
+
+# ── Filtro de calidad NDVI ────────────────────────────────────────────
+umbral_nulos_pixel: 30     # excluir píxeles con > 30% NDVI faltante
+
+# ── Período de datos ──────────────────────────────────────────────────
+fecha_inicio: "2003-01-01"
+fecha_fin: "2026-04-28"    # actualizar cada 16 días
+
+# ── Split temporal ────────────────────────────────────────────────────
+train_end:   "2018-12-31"
+val_start:   "2019-01-01"
+val_end:     "2020-12-31"
+test_start:  "2021-01-01"
+
+# ── Modelo IC ────────────────────────────────────────────────────────
+ic_seleccionado: "IC_WI_ext"
+metodo_dependencia: "QR"
+tau_qr: 0.10
+umbral_ols_pct: 0.20
+period_stl: 23
+umbral_T_pct: 0.15
+meses_baja_cobertura: [3, 4, 10, 11]
+
+# ── Pricing ──────────────────────────────────────────────────────────
+n_sim_mc: 50000
+payout_max: 1.0
+loading: 0.20
+trigger_pct: 0.10
+payout_max_pct: 0.05
+seed: 42
+distribucion: "weibull"
+ad_critico_5pct: 0.752
+
+# ── API ───────────────────────────────────────────────────────────────
+api_version: "1.0.0"
+max_basis_risk_km: 5.0

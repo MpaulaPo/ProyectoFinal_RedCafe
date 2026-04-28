@@ -1,0 +1,33 @@
+name: Deploy API a Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/api/**"
+      - "output/pa3/*.dvc"
+      - "requirements.txt"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar DVC y pull artefactos de pricing
+        env:
+          AWS_ACCESS_KEY_ID:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          pip install dvc dvc-s3
+          dvc remote modify myremote access_key_id     $AWS_ACCESS_KEY_ID
+          dvc remote modify myremote secret_access_key $AWS_SECRET_ACCESS_KEY
+          dvc pull output/pa3/ output/ic/
+
+      - name: Deploy a Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          npm install -g @railway/cli
+          railway up --service red-cafe-api
