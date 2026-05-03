@@ -12,7 +12,7 @@ API REST que calcula primas técnicas de seguro indexado para café en Caldas,
 basadas en un Índice Climático Compuesto (IC_WI_ext) construido desde datos
 ERA5-Land y validado contra NDVI de MODIS.
 
-**Pipeline:** ERA5 + MODIS → Procesamiento → IC (WI sobre extremos + QR) → Weibull + MC → Prima → API
+**Pipeline:** ERA5 + MODIS → Procesamiento → IC (WI sobre extremos + QR) → Weibull + MC → Curvas de pago OLS calibradas → Prima → API
 
 ---
 
@@ -23,8 +23,8 @@ red_cafe/
 ├── notebooks/
 │   ├── 01_Procesamiento.ipynb       # QA, filtro espacial, splits, feature eng.
 │   ├── 02_IC_construccion.ipynb     # PCA, WI, backtest, PA2, IC_WI_ext
-│   ├── 03_PA3_pricing.ipynb         # STL, Weibull, Monte Carlo, HE, primas
-│   └── 00_Descarga_GEE.ipynb        # Descarga ERA5 + MODIS (pendiente)
+│   ├── 03_Pricing.ipynb             # STL, PAYOUT_MAX calibrado, Plan A (OLS) vs Plan B (lineal), comparación, HE, exportación
+│   └── 00_Descarga_GEE.ipynb        # Descarga ERA5 + MODIS
 ├── src/
 │   ├── api/main.py                  # FastAPI: /indicator, /simulation, etc.
 │   └── pipeline/00_descarga_gee.py  # Script DVC para descarga automatizada
@@ -57,9 +57,11 @@ python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. Configurar DVC remote y bajar artefactos
+# 3. Configurar DVC remote para datos crudos
 dvc remote modify myremote gdrive_use_service_account true
-dvc pull                         # descarga data/ y output/ desde Google Drive
+# Nota: los artefactos del modelo ya están incluidos en el repositorio (output/).
+# dvc pull solo es necesario si se quiere regenerar los datos crudos desde cero
+# (data/raw/ y data/processed/), que no son necesarios para correr el API.
 
 # 4. Lanzar la API localmente
 ### Pendiente
@@ -154,11 +156,11 @@ curl -X POST http://localhost:8000/simulation/run \
 
 | Requerimiento | Criterio | Resultado |
 |---|---|---|
-| R1 — Hedge Effectiveness | ≥ 55% | En diagnóstico |
+| R1 — Hedge Effectiveness | ≥ 55% | 39.6% - No cumple |
 | R2 — Dispersión de primas | ≥ 20% diferencia alto/bajo riesgo | 45.1% ✅ |
-| R3 — Reproducibilidad | Varianza = 0 con semilla fija | X - pendiente ajuste semilla por celda |
-| R4 — Correlación IC-NDVI | ρ ≥ 0.60 | ρ = 0.495 - evaluar si se ajusta el requerimiento |
-| R5 — Recall eventos extremos | ≥ 60% | 84.9% ✅ |
+| R3 — Reproducibilidad | Varianza = 0 con semilla fija | 0 ✅ |
+| R4 — Correlación IC-NDVI | ρ ≥ 0.60 | ρ = 0.604 ✅ |
+| R5 — Recall eventos extremos | ≥ 60% | 85.1% ✅ |
 
 ---
 
