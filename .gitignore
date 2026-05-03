@@ -57,3 +57,4 @@ service_account_key.json
 *.yaml
 !config/*.yaml
 !dvc.yaml
+notebooks/02_IC_construccion_1.ipynb
