@@ -24,7 +24,7 @@ red_cafe/
 │   ├── 01_Procesamiento.ipynb       # QA, filtro espacial, splits, feature eng.
 │   ├── 02_IC_construccion.ipynb     # PCA, WI, backtest, PA2, IC_WI_ext
 │   ├── 03_Pricing.ipynb             # STL, PAYOUT_MAX calibrado, Plan A (OLS) vs Plan B (lineal), comparación, HE, exportación
-│   └── 00_Descarga_GEE.ipynb        # Descarga ERA5 + MODIS (pendiente)
+│   └── 00_Descarga_GEE.ipynb        # Descarga ERA5 + MODIS
 ├── src/
 │   ├── api/main.py                  # FastAPI: /indicator, /simulation, etc.
 │   └── pipeline/00_descarga_gee.py  # Script DVC para descarga automatizada
