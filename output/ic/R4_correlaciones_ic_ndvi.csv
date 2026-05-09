@@ -1,0 +1,7 @@
+IC,pearson_total,spearman_total,n_total,pearson_buenas,spearman_buenas,n_buenas
+IC_PCA,0.3416,0.3465,8829,-0.0275,-0.0435,2246
+IC_WI,0.4809,0.4952,8829,0.3765,0.4183,2246
+IC_WI_top5,0.5354,0.5401,8829,0.4338,0.4718,2246
+IC_WI_ext,0.4782,0.3707,8829,0.6278,0.6064,2246
+IC_WI_min2,0.4749,0.4904,8829,0.3822,0.4366,2246
+IC_WI_elev,,,0,,,0

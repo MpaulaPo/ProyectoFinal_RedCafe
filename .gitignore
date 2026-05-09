@@ -1,14 +1,6 @@
-# ── Datos (gestionados por DVC, nunca por git) ────────────────────────
+# ── Datos crudos (gestionados por DVC, nunca por git) ─────────────────
 data/raw/
 data/processed/
-output/ic/
-output/pa3/
-*.parquet
-*.pkl
-*.csv
-*.tif
-*.nc
-*.h5
 
 # ── DVC cache local ───────────────────────────────────────────────────
 .dvc/cache/
@@ -51,9 +43,7 @@ logs/
 !config/*.json.example
 service_account_key.json
 
-# ── Modelos serializados (en output/, gestionados por DVC) ────────────
-*.pkl
-*.joblib
+# ── config/*.yaml excluidos globalmente — excepciones explícitas ──────
 *.yaml
 !config/*.yaml
 !dvc.yaml

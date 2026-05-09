@@ -1,0 +1,5 @@
+Combinacion,Recall global VAL (%),Recall buena cob. VAL (%),Recall baja cob. VAL (%),Pinball VAL,Cob.p10 / R²,R5 cob. OK,N extremos VAL,OK
+IC_PCA_QR,2.5,3.2,0.0,0.1961,7.8,—,118,❌
+IC_WI_QR,34.7,36.8,26.1,0.1774,8.4,✅,118,❌
+IC_PCA_OLS,2.5,3.2,0.0,0.273,0.061,—,118,❌
+IC_WI_OLS,34.7,36.8,26.1,0.4489,-0.004,—,118,❌
