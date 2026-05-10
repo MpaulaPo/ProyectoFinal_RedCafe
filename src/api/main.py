@@ -38,9 +38,17 @@ primas_df   = pd.read_parquet(os.path.join(OUTPUT_PA3, "primas.parquet"))
 params_dist = joblib.load(os.path.join(OUTPUT_PA3, "params_dist.pkl"))
 triggers    = joblib.load(os.path.join(OUTPUT_PA3, "triggers.pkl"))
 pesos_wi    = joblib.load(os.path.join(OUTPUT_IC,  "pesos_wi_ext.pkl"))
+curva_pago  = joblib.load(os.path.join(OUTPUT_PA3, "curva_pago.pkl"))
 config_ic   = yaml.safe_load(open(os.path.join(OUTPUT_IC, "config_ic.yaml")))
 
 COLS_Z = config_ic["cols_z"]
+
+# Parámetros de la curva de pago OLS
+CP_ALPHA  = float(curva_pago["alpha"])
+CP_BETA   = float(curva_pago["beta"])
+CP_BETA2  = float(curva_pago.get("beta2", 0.0))
+CP_PM     = float(curva_pago["payout_max"])        # en escala z-score
+CP_TIPO   = curva_pago.get("tipo", "OLS_lineal")
 
 # Asegurar que la columna fecha es datetime para el lookup por período
 ic_test_df["fecha"] = pd.to_datetime(ic_test_df["fecha"])
@@ -74,6 +82,24 @@ def fecha_a_periodo(fecha_evento: date) -> pd.Timestamp:
     dias = (pd.Timestamp(fecha_evento) - ORIGEN_PERIODOS).days
     slot = (dias // 16) * 16
     return ORIGEN_PERIODOS + pd.Timedelta(days=slot)
+
+
+def aplicar_curva_pago(ic_val: float) -> float:
+    """
+    Aplica la curva OLS y normaliza el resultado a [0, 1].
+
+    fraccion_raw  = alpha + beta*IC + beta2*IC²   (escala z-score)
+    fraccion_raw  se clipea a [0, PAYOUT_MAX]
+    fraccion_norm = fraccion_raw / PAYOUT_MAX      → [0, 1]
+
+    Interpretación:
+      0.0 → sin pérdida
+      0.5 → pérdida media, paga el 50% de la cobertura contratada
+      1.0 → pérdida total (IC ≤ p5), paga el 100% de la cobertura
+    """
+    raw  = CP_ALPHA + CP_BETA * ic_val + CP_BETA2 * (ic_val ** 2)
+    raw  = max(0.0, min(CP_PM, raw))
+    return round(raw / CP_PM, 6)
 
 
 def validar_basis_risk(celda: tuple, dist_km: float):
@@ -212,13 +238,14 @@ class Trigger(BaseModel):
 
 class Pago(BaseModel):
     trigger_activo: bool
+    fraccion_pago:  float   # fracción normalizada [0,1] de la cobertura
     pago_usd:       float
 
 
 class CotizacionResponse(BaseModel):
-    ubicacion:     Ubicacion
+    ubicacion:      Ubicacion
     contexto_celda: ContextoCelda
-    poliza:        Poliza
+    poliza:         Poliza
 
 
 class EventoResponse(BaseModel):
@@ -237,9 +264,13 @@ app = FastAPI(
         "para café en Caldas. Basada en el Índice Climático Compuesto IC_WI_ext "
         "construido desde datos ERA5-Land (2003-presente).\n\n"
         "**Modelo de pricing:** Weibull + Monte Carlo (50.000 escenarios) "
-        "con curva de pago OLS calibrada en zona de disparo (train 2003-2018).\n\n"
+        f"con curva de pago {CP_TIPO} calibrada en zona de disparo "
+        "(train 2003-2018).\n\n"
         "**Prima:** `e_loss × (1 + loading) × cobertura "
         "× suma_asegurada_usd_ha × hectareas`\n\n"
+        "**Pago por evento:** `fraccion_pago × cobertura "
+        "× suma_asegurada_usd_ha × hectareas`, donde "
+        "`fraccion_pago ∈ [0,1]` es la curva OLS normalizada por PAYOUT_MAX.\n\n"
         "**Basis risk:** distancia entre coordenadas ingresadas y centroide de "
         "celda ERA5 más cercana (resolución espacial: 11 km). "
         "Se rechaza la solicitud si basis_risk > 5.5 km.\n\n"
@@ -306,8 +337,8 @@ def get_sources():
             },
         ],
         "periodo_historico"   : "2003-01-01 / 2021-12-31 (train + val + test)",
-        "periodo_scoring"     : f"{FECHA_MIN.strftime('%Y-%m-%d')} / "
-                                f"{FECHA_MAX.strftime('%Y-%m-%d')}",
+        "periodo_scoring"     : (f"{FECHA_MIN.strftime('%Y-%m-%d')} / "
+                                 f"{FECHA_MAX.strftime('%Y-%m-%d')}"),
         "ultima_actualizacion": CFG.get("ultima_actualizacion",
                                         "ver config_pa3.yaml"),
     }
@@ -416,13 +447,14 @@ def policy_quote(req: CotizacionRequest):
         "Verifica si el IC del período de 16 días que contiene la "
         "fecha_evento activa el trigger del seguro, y calcula el pago "
         "correspondiente en USD.\n\n"
-        "**IC y período:** la fecha_evento se asigna al período de 16 días "
-        "correspondiente (mismos slots que ERA5 desde 2003-01-01).\n\n"
-        "**Contribuciones:** w_i × Z_i por variable. "
-        "La suma de todas las contribuciones es igual al valor de `ic`.\n\n"
-        "**Pago:** si el trigger está activo, "
-        "`pago_usd = prima_comercial × cobertura × suma_asegurada_usd_ha "
-        "× hectareas`. Si no está activo, `pago_usd = 0`.\n\n"
+        "**Fracción de pago:** resultado de la curva OLS normalizado a [0,1] "
+        f"dividiendo por PAYOUT_MAX ({CP_PM:.4f}). "
+        "Representa qué fracción de la cobertura contratada se paga:\n"
+        "- `0.0` → sin pérdida detectable\n"
+        "- `0.5` → pérdida media, paga el 50% de la cobertura\n"
+        "- `1.0` → pérdida total (IC ≤ p5), paga el 100% de la cobertura\n\n"
+        "**Pago:** `fraccion_pago × cobertura × suma_asegurada_usd_ha "
+        "× hectareas`. Si el trigger no está activo, `pago_usd = 0`.\n\n"
         f"**Rango de fechas disponible:** "
         f"{FECHA_MIN.strftime('%Y-%m-%d')} a "
         f"{FECHA_MAX.strftime('%Y-%m-%d')}."
@@ -461,8 +493,8 @@ def event_check(req: EventoRequest):
     # ── 4. Contribuciones: w_i × Z_i ─────────────────────────────────
     contribuciones = {}
     for c in COLS_Z:
-        w_i = float(pesos_wi[c]) if c in pesos_wi       else 0.0
-        z_i = float(ic_row[c])   if c in ic_row.index   else 0.0
+        w_i = float(pesos_wi[c]) if c in pesos_wi     else 0.0
+        z_i = float(ic_row[c])   if c in ic_row.index else 0.0
         contribuciones[c] = round(w_i * z_i, 4)
 
     # ── 5. Trigger ────────────────────────────────────────────────────
@@ -471,18 +503,22 @@ def event_check(req: EventoRequest):
     p5       = float(trig["p5_ic"])
     activo   = ic_val < p10
 
-    # prob_activacion_historica desde primas
     row      = obtener_prima_celda(celda)
     prob_act = round(float(row.get("prob_trigger", 0.10)), 4)
 
     # ── 6. Pago ───────────────────────────────────────────────────────
-    e_loss          = float(row["e_loss"])
-    prima_comercial = e_loss * (1 + req.loading)
-    pago_usd = round(
-        prima_comercial * req.cobertura
-        * req.suma_asegurada_usd_ha * req.hectareas,
-        2
-    ) if activo else 0.0
+    # fraccion_pago ∈ [0,1]: curva OLS normalizada por PAYOUT_MAX
+    # pago_usd = fraccion_pago × cobertura × suma_asegurada × hectareas
+    if activo:
+        fraccion_pago = aplicar_curva_pago(ic_val)
+        pago_usd = round(
+            fraccion_pago * req.cobertura
+            * req.suma_asegurada_usd_ha * req.hectareas,
+            2
+        )
+    else:
+        fraccion_pago = 0.0
+        pago_usd      = 0.0
 
     return EventoResponse(
         ubicacion=Ubicacion(
@@ -503,6 +539,7 @@ def event_check(req: EventoRequest):
         ),
         pago=Pago(
             trigger_activo=activo,
+            fraccion_pago=fraccion_pago,
             pago_usd=pago_usd,
         ),
     )
