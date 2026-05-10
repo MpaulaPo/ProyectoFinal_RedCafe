@@ -1,0 +1,20 @@
+col_pricing: IC
+curva_pago: OLS calibrada
+distribucion: weibull
+ic_definitivo: IC_WI_ext
+justificacion_dist: menor AD medio entre Gamma/Lognorm/Weibull; fundamento teoría
+  valores extremos
+loading: 0.2
+metricas:
+  HE: 0.3959
+  dispersion_r2: 942872.54
+  n_celdas: 36
+n_sim_mc: 50000
+payout_max: 4.1724
+payout_max_pct: 0.05
+period_stl: 23
+plan_seleccionado: A
+seed: 42
+trigger_pct: 0.1
+umbral_T_pct: 0.15
+usar_residuo_stl: false

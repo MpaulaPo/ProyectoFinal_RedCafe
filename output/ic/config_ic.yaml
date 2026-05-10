@@ -1,0 +1,19 @@
+cols_z:
+- Z_tmax
+- Z_tmin
+- Z_skin_temp
+- Z_ppt
+- Z_srad
+- Z_pet
+- Z_soil_water
+- Z_vap
+- Z_vpd
+- Z_ws
+- Z_BAL
+combinacion: IC_WI_ext_QR
+ic_seleccionado: IC_WI_ext
+metodo_dependencia: QR
+seed: 42
+tau_qr: 0.1
+umbral_ols_pct: 0.2
+var_explicada_pca: 0.4482

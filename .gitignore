@@ -43,8 +43,9 @@ logs/
 !config/*.json.example
 service_account_key.json
 
-# ── config/*.yaml excluidos globalmente — excepciones explícitas ──────
+# ── yaml: excluir globalmente excepto los necesarios ─────────────────
 *.yaml
 !config/*.yaml
 !dvc.yaml
-notebooks/02_IC_construccion_1.ipynb
+!output/ic/*.yaml
+!output/pa3/*.yaml
