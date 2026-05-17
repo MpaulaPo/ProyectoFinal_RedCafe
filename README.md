@@ -19,29 +19,47 @@ ERA5-Land y validado contra NDVI de MODIS.
 ## Estructura del proyecto
 
 ```
-red_cafe/
+ProyectoFinal_RedCafe/
 ├── notebooks/
+│   ├── 00_Descarga_GEE.ipynb        # Descarga ERA5 + MODIS desde GEE
 │   ├── 01_Procesamiento.ipynb       # QA, filtro espacial, splits, feature eng.
-│   ├── 02_IC_construccion.ipynb     # PCA, WI, backtest, PA2, IC_WI_ext
-│   ├── 03_Pricing.ipynb             # STL, PAYOUT_MAX calibrado, Plan A (OLS) vs Plan B (lineal), comparación, HE, exportación
-│   └── 00_Descarga_GEE.ipynb        # Descarga ERA5 + MODIS
+│   ├── 02_IC_construccion.ipynb     # PCA, WI, backtest, IC_WI_ext
+│   └── 03_Pricing.ipynb             # Weibull, Monte Carlo, OLS, primas
 ├── src/
-│   ├── api/main.py                  # FastAPI: /indicator, /simulation, etc.
-│   └── pipeline/00_descarga_gee.py  # Script DVC para descarga automatizada
+│   └── api/main.py                  # FastAPI: /policy/quote, /event/check
 ├── config/
 │   └── params.yaml                  # Parámetros centralizados del proyecto
-├── data/                            # Gestionada por DVC (no en git)
-│   ├── raw/                         # ERA5 + MODIS sin procesar
-│   └── processed/                   # Parquets train/val/test
-├── output/                          # Gestionada por DVC (no en git)
-│   ├── ic/                          # Modelos IC + parquets con IC
-│   └── pa3/                         # Weibull params, triggers, primas
-├── dvc.yaml                         # Pipeline DVC de 4 etapas
+├── data/                            # Datos crudos — gestionados por DVC
+│   └── raw/
+│       ├── ERA5_Caldas/             # Archivos .tif ERA5 por período de 16 días
+│       ├── MODIS_Caldas/            # Archivos .tif NDVI por período de 16 días
+│       ├── ERA5_Caldas.dvc          # Puntero DVC → Google Drive
+│       └── MODIS_Caldas.dvc         # Puntero DVC → Google Drive
+├── output/                          # Artefactos del modelo — en git (15 MB total)
+│   ├── ic/                          # Modelos IC + parquets con IC calculado
+│   └── pa3/                         # Weibull params, triggers, curva pago, primas
 ├── .github/workflows/
-│   ├── pipeline_update.yml          # Actualización automática cada 16 días
-│   └── deploy_api.yml               # Deploy a Railway al hacer push a main
-└── requirements.txt
+│   └── deploy_api.yml               # Deploy automático a Railway al hacer push a main
+├── Procfile                         # Comando de inicio para Railway
+├── requirements.txt                 # Dependencias del API (Railway)
+├── requirements_model.txt           # Dependencias completas (notebooks + API)
+└── ULTIMA_ACTUALIZACION.md          # Fecha de la última actualización de datos
 ```
+
+---
+
+## Acceso al API desplegado
+
+El API está desplegado en Railway y no requiere instalación local para consumirlo.
+
+| Recurso | URL |
+|---|---|
+| API Base | `https://web-production-320c0.up.railway.app` |
+| Swagger UI | `https://web-production-320c0.up.railway.app/docs` |
+| Health check | `https://web-production-320c0.up.railway.app/health` |
+
+> **Nota:** si el servicio está inactivo, la primera respuesta puede tardar
+> hasta 15 segundos (cold start). Las consultas siguientes responden en menos de 2 segundos.
 
 ---
 
@@ -49,118 +67,201 @@ red_cafe/
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/TU_ORG/red-cafe.git
-cd red-cafe
+git clone https://github.com/MpaulaPo/ProyectoFinal_RedCafe.git
+cd ProyectoFinal_RedCafe
 
-# 2. Crear entorno virtual e instalar dependencias
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+# 2. Crear entorno e instalar dependencias
+conda create -n redcafe python=3.10
+conda activate redcafe
+pip install -r requirements_model.txt
 
-# 3. Configurar DVC remote para datos crudos
-dvc remote modify myremote gdrive_use_service_account true
-# Nota: los artefactos del modelo ya están incluidos en el repositorio (output/).
-# dvc pull solo es necesario si se quiere regenerar los datos crudos desde cero
-# (data/raw/ y data/processed/), que no son necesarios para correr el API.
+# 3. Bajar datos crudos desde Google Drive (DVC)
+# Los artefactos del modelo ya están en el repositorio (output/).
+# Solo es necesario bajar los datos crudos si se quiere regenerar
+# el pipeline desde cero.
+pip install dvc dvc-gdrive
+dvc pull
 
-# 4. Lanzar la API localmente
-### Pendiente
+# 4. Lanzar el API localmente
+uvicorn src.api.main:app --reload --port 8000
 ```
 
-#### Swagger UI disponible en: ----pendiente----
+Swagger UI disponible en: `http://localhost:8000/docs`
+
+> **Nota para el equipo evaluador:** reemplazar `ee-naranjocdaniela` en la
+> celda de inicialización de GEE (`00_Descarga_GEE.ipynb`) con el ID de su
+> propio proyecto de Google Earth Engine.
 
 ---
 
-## Pipeline DVC
-
-El pipeline tiene 4 etapas encadenadas:
-
-```
-descarga → procesamiento → ic_construccion → pricing
-```
-
-Para reproducir todo desde cero:
-
-```bash
-dvc repro
-```
-
-Para reproducir solo una etapa:
-
-```bash
-dvc repro pricing   # solo la etapa de pricing
-```
-
-Para actualizar datos con una nueva fecha:
-
-```bash
-# Editar config/params.yaml → fecha_fin: "2026-05-14"
-dvc repro descarga
-dvc push
-```
-
----
-
-## Actualización (manual por ahora -- futuro automática) (cada 16 días)
-
-Ejecutar manualmente desde **Actions → Actualización pipeline → Run workflow**.
-
-Secrets requeridos en GitHub:
-| Secret | Descripción |
-|--------|-------------|
-| `GEE_SERVICE_ACCOUNT_KEY` | JSON de cuenta de servicio de GEE |
-| `GDRIVE_CREDENTIALS_DATA` | Credenciales OAuth DVC para Google Drive |
-| `RAILWAY_TOKEN` | Token de despliegue Railway |
-
----
-
-## API — Endpoints principales - PENDIENTE
+## API — Endpoints
 
 | Método | Endpoint | Descripción |
-|--------|----------|-------------|
+|---|---|---|
+| GET | `/health` | Estado del servicio y fecha de última actualización |
 | GET | `/sources` | Fuentes de datos disponibles |
-| POST | `/field-verification` | Valida lat/lon dentro de Caldas |
-| POST | `/indicator/generate` | IC para una ubicación y fecha |
-| POST | `/simulation/run` | E(Loss) + prima técnica + trazabilidad |
+| POST | `/field-verification` | Valida lat/lon dentro de la zona modelada |
+| POST | `/policy/quote` | Cotización de la póliza — prima en USD |
+| POST | `/event/check` | Verificación de pago por evento climático |
 
-**Ejemplo de solicitud:**
-```bash
-curl -X POST http://localhost:8000/simulation/run \
-  -H "Content-Type: application/json" \
-  -d '{"lat": 5.05, "lon": -75.50, "fecha": "2026-04-28"}'
-```
+### Endpoint `/policy/quote` — Cotización de la póliza
 
-**Ejemplo de respuesta:**
+**Entrada:**
 ```json
 {
-  "fecha": "2026-04-28",
-  "lat": 5.05, "lon": -75.50,
-  "celda_lat": 5.05, "celda_lon": -75.50,
-  "basis_risk_km": 0.0,
-  "ic": -0.432,
-  "trigger_p10": -0.518,
-  "trigger_p5": -0.823,
-  "activo": true,
-  "e_loss": 0.127341,
-  "prima_pura": 0.127341,
-  "loading": 0.20,
-  "prima_cargada": 0.152809,
-  "distribucion": "weibull",
-  "n_sim": 50000
+  "lat": 4.97,
+  "lon": -75.61,
+  "hectareas": 3.5,
+  "suma_asegurada_usd_ha": 300.0,
+  "cobertura": 0.70,
+  "loading": 0.20
 }
 ```
 
+**Salida:**
+```json
+{
+  "ubicacion": {
+    "lat": 4.97, "lon": -75.61,
+    "celda_lat": 4.97, "celda_lon": -75.61,
+    "basis_risk_km": 0.0
+  },
+  "contexto_celda": {
+    "e_loss": 0.127341,
+    "prob_activacion_historica": 0.102
+  },
+  "poliza": {
+    "prima_tecnica": 0.127341,
+    "loading": 0.20,
+    "prima_comercial": 0.152809,
+    "cobertura": 0.70,
+    "suma_asegurada_usd_ha": 300.0,
+    "hectareas": 3.5,
+    "prima_total_usd": 112.95
+  }
+}
+```
+
+### Endpoint `/event/check` — Verificación de pago por evento
+
+**Entrada:**
+```json
+{
+  "lat": 4.97,
+  "lon": -75.61,
+  "fecha_evento": "2024-03-01",
+  "hectareas": 3.5,
+  "suma_asegurada_usd_ha": 300.0,
+  "cobertura": 0.70,
+  "loading": 0.20
+}
+```
+
+**Salida:**
+```json
+{
+  "ubicacion": {
+    "lat": 4.97, "lon": -75.61,
+    "celda_lat": 4.97, "celda_lon": -75.61,
+    "basis_risk_km": 0.0
+  },
+  "indice_climatico": {
+    "ic": -0.432,
+    "periodo": "2024-02-17",
+    "contribuciones": {
+      "Z_BAL": -0.198, "Z_ppt": -0.112, "Z_tmax": 0.043
+    }
+  },
+  "trigger": {
+    "activo": false,
+    "umbral_p10": -1.385,
+    "umbral_p5": -1.451,
+    "prob_activacion_historica": 0.102
+  },
+  "pago": {
+    "trigger_activo": false,
+    "fraccion_pago": 0.0,
+    "pago_usd": 0.0
+  }
+}
+```
+
+### Códigos de error
+
+| Código | Cuándo ocurre |
+|---|---|
+| HTTP 422 | Campo faltante, tipo incorrecto o fuera de rango |
+| HTTP 400 | Celda más cercana a > 5.5 km de las coordenadas ingresadas |
+| HTTP 404 | Sin datos para la celda o período solicitado |
+
 ---
 
-## Métricas del modelo (TEST SET)
+## Actualización de datos (cada 16 días)
+
+Los datos de ERA5 tienen un rezago de 2-3 meses. La actualización se realiza
+manualmente siguiendo estos pasos:
+
+**Paso 1 — Verificar disponibilidad en ERA5**
+
+Incluir en `00_Descarga_GEE.ipynb` antes de lanzar tareas:
+```python
+col = (ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR')
+         .filterBounds(ee.Geometry.Point([-75.5, 5.2]))
+         .sort('system:time_start', False))
+print(col.first().date().format('YYYY-MM-dd').getInfo())
+```
+
+**Paso 2 — Lanzar descarga incremental**
+
+En `00_Descarga_GEE.ipynb`, cambiar `PRIMERA_VEZ = False` y ejecutar.
+GEE exportará solo los períodos nuevos a las carpetas `ERA5_Caldas/` y
+`MODIS_Caldas/` en Google Drive.
+
+**Paso 3 — Bajar archivos nuevos de Drive a local**
+
+Descargar los `.tif` nuevos desde Google Drive y copiarlos en:
+- `data/raw/ERA5_Caldas/`
+- `data/raw/MODIS_Caldas/`
+
+**Paso 4 — Ejecutar el pipeline**
+
+```
+01_Procesamiento.ipynb   → PRIMERA_VEZ = False
+02_IC_construccion.ipynb → PRIMERA_VEZ = False (celda incremental al inicio)
+03_Pricing.ipynb         → PRIMERA_VEZ = False (celda incremental al inicio)
+```
+
+> **Importante:** no recalcular `scaler_params`, pesos del IC_WI_ext ni
+> modelo de dependencia. Estos parámetros están fijos en train (2003-2018)
+> para evitar data leakage.
+
+**Paso 5 — Versionar datos y redesplegar**
+
+```bash
+dvc add data/raw/ERA5_Caldas data/raw/MODIS_Caldas
+dvc push
+git add data/raw/ERA5_Caldas.dvc data/raw/MODIS_Caldas.dvc output/ ULTIMA_ACTUALIZACION.md
+git commit -m "data: actualización incremental — YYYY-MM-DD"
+git push
+```
+
+Railway detecta el push y redespliega automáticamente con los artefactos nuevos.
+
+---
+
+## Métricas del modelo (TEST SET 2022-2026)
 
 | Requerimiento | Criterio | Resultado |
 |---|---|---|
-| R1 — Hedge Effectiveness | ≥ 55% | 39.6% - No cumple |
+| R1 — Hedge Effectiveness | ≥ 55% | 39.6% ⚠️ |
 | R2 — Dispersión de primas | ≥ 20% diferencia alto/bajo riesgo | 45.1% ✅ |
-| R3 — Reproducibilidad | Varianza = 0 con semilla fija | 0 ✅ |
+| R3 — Reproducibilidad | Varianza = 0 con semilla fija | 0.0 ✅ |
 | R4 — Correlación IC-NDVI | ρ ≥ 0.60 | ρ = 0.604 ✅ |
 | R5 — Recall eventos extremos | ≥ 60% | 85.1% ✅ |
+
+> R1 no cumple debido a la alta nubosidad en Caldas (~50% de faltantes en
+> NDVI MODIS), que limita la validación del proxy de pérdida. Mejora
+> prevista en V2 con datos de rendimiento de la FNC.
 
 ---
 
