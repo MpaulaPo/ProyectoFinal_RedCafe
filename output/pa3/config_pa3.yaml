@@ -16,5 +16,6 @@ period_stl: 23
 plan_seleccionado: A
 seed: 42
 trigger_pct: 0.1
+ultima_actualizacion: '2026-05-17'
 umbral_T_pct: 0.15
 usar_residuo_stl: false
