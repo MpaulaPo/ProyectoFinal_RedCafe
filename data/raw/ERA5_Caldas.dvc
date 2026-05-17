@@ -1,0 +1,6 @@
+outs:
+- md5: bf1276502241d68c1549bf13fe240b4a.dir
+  size: 7724071
+  nfiles: 532
+  hash: md5
+  path: ERA5_Caldas

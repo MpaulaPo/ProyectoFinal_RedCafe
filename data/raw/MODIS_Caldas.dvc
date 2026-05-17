@@ -1,0 +1,6 @@
+outs:
+- md5: f7c36b91378c4a5a68c784c6424e404e.dir
+  size: 1969932
+  nfiles: 1062
+  hash: md5
+  path: MODIS_Caldas
