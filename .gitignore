@@ -1,6 +1,9 @@
 # ── Datos crudos (gestionados por DVC, nunca por git) ─────────────────
 data/raw/
 data/processed/
+!data/raw/*.dvc
+!data/processed/*.dvc
+!data/**/.gitignore
 
 # ── DVC cache local ───────────────────────────────────────────────────
 .dvc/cache/
