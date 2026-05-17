@@ -57,7 +57,12 @@ ic_test_df["fecha"] = pd.to_datetime(ic_test_df["fecha"])
 LAT_MIN, LAT_MAX  =  4.7,   5.7
 LON_MIN, LON_MAX  = -76.2, -74.9
 FECHA_MIN         = date(2022, 1, 1)
-FECHA_MAX         = date(2026, 4, 17)   # ← actualizar cada 16 días
+
+# FECHA_MAX se lee desde config_pa3.yaml — se actualiza automáticamente
+# con cada ejecución del pipeline de pricing (03_Pricing.ipynb)
+_fecha_max_str = CFG.get("ultima_actualizacion_datos", "2026-04-17")
+FECHA_MAX = date.fromisoformat(_fecha_max_str)
+
 ORIGEN_PERIODOS   = pd.Timestamp("2003-01-01")
 BASIS_RISK_MAX_KM = 5.5
 COBERTURA_DEFAULT = 0.70
