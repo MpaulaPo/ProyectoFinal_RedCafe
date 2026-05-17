@@ -201,29 +201,21 @@ Swagger UI disponible en: `http://localhost:8000/docs`
 Los datos de ERA5 tienen un rezago de 2-3 meses. La actualización se realiza
 manualmente siguiendo estos pasos:
 
-**Paso 1 — Verificar disponibilidad en ERA5**
+**Paso 1 — Ejecutar `00_Descarga_GEE.ipynb`**
 
-Incluir en `00_Descarga_GEE.ipynb` antes de lanzar tareas:
-```python
-col = (ee.ImageCollection('ECMWF/ERA5_LAND/DAILY_AGGR')
-         .filterBounds(ee.Geometry.Point([-75.5, 5.2]))
-         .sort('system:time_start', False))
-print(col.first().date().format('YYYY-MM-dd').getInfo())
-```
+Cambiar `PRIMERA_VEZ = False` y ejecutar. El notebook detecta automáticamente 
+la última fecha disponible en ERA5 y lanza las tareas de GEE solo para los 
+períodos nuevos. Las tareas pueden tardar varias horas. Monitorear en 
+`https://code.earthengine.google.com/tasks`
 
-**Paso 2 — Lanzar descarga incremental**
+**Paso 2 — Bajar archivos nuevos de Drive a local**
 
-En `00_Descarga_GEE.ipynb`, cambiar `PRIMERA_VEZ = False` y ejecutar.
-GEE exportará solo los períodos nuevos a las carpetas `ERA5_Caldas/` y
-`MODIS_Caldas/` en Google Drive.
-
-**Paso 3 — Bajar archivos nuevos de Drive a local**
-
-Descargar los `.tif` nuevos desde Google Drive y copiarlos en:
+Cuando todas las tareas terminen, descargar los `.tif` nuevos desde Google Drive 
+y copiarlos en:
 - `data/raw/ERA5_Caldas/`
 - `data/raw/MODIS_Caldas/`
 
-**Paso 4 — Ejecutar el pipeline**
+**Paso 3 — Ejecutar el pipeline**
 
 ```
 01_Procesamiento.ipynb   → PRIMERA_VEZ = False
@@ -235,7 +227,7 @@ Descargar los `.tif` nuevos desde Google Drive y copiarlos en:
 > modelo de dependencia. Estos parámetros están fijos en train (2003-2018)
 > para evitar data leakage.
 
-**Paso 5 — Versionar datos y redesplegar**
+**Paso 4 — Versionar datos y redesplegar**
 
 ```bash
 dvc add data/raw/ERA5_Caldas data/raw/MODIS_Caldas
@@ -249,7 +241,7 @@ Railway detecta el push y redespliega automáticamente con los artefactos nuevos
 
 ---
 
-## Métricas del modelo (TEST SET 2022-2026)
+## Métricas del proyecto
 
 | Requerimiento | Criterio | Resultado |
 |---|---|---|
@@ -258,10 +250,16 @@ Railway detecta el push y redespliega automáticamente con los artefactos nuevos
 | R3 — Reproducibilidad | Varianza = 0 con semilla fija | 0.0 ✅ |
 | R4 — Correlación IC-NDVI | ρ ≥ 0.60 | ρ = 0.604 ✅ |
 | R5 — Recall eventos extremos | ≥ 60% | 85.1% ✅ |
+| R6 — Precisión y estabilidad temporal del IC | Pinball loss ≤ 22% | 21% ✅ |
+| R7 — Desempeño y disponibilidad del API desplegado | ≤ 2 seg | 239 ms ✅ |
+| R8 — Actualización periódica y mantenimiento del modelo | c/16 días | Últ. act: 08/05/2026 ✅ |
+| R9 — Manejo de errores e integridad del sistema | Errores documentados | HTTP 400/404/422/500/503 ✅ |
+| R10 — Interpretabilidad y auditabilidad del modelo para el actuario | | Modelo interpretable ✅ |
+| R11 — Integración estándar y trazabilidad de resultados | | API REST con JSON estructurado ✅ |
 
 > R1 no cumple debido a la alta nubosidad en Caldas (~50% de faltantes en
 > NDVI MODIS), que limita la validación del proxy de pérdida. Mejora
-> prevista en V2 con datos de rendimiento de la FNC.
+> prevista en V2 con datos de rendimiento de la FNC y pruebas de otros IC.
 
 ---
 
